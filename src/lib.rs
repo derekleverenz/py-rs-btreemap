@@ -253,7 +253,7 @@ impl IntBTreeMap {
 
 /// Python wrapper around rust's BTreeMap
 #[pymodule]
-fn py_btree_map(_py: Python, m: &PyModule) -> PyResult<()> {
+fn rs_btree_map(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<IntBTreeMap>()?;
     m.add_class::<IntBTreeMapItems>()?;
     m.add_class::<IntBTreeMapKeys>()?;

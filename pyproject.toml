@@ -3,14 +3,21 @@ requires = ["maturin>=1.1,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "py_btree_map"
+name = "btree_map"
 requires-python = ">=3.7"
+readme = "README.md"
+license = {file = "LICENSE"}
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
+[project.optional_dependencies]
+devel = [
+    "pytest",
+    "pytest-benchmark"
+]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

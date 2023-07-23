@@ -2,9 +2,9 @@
 
 A python wrapper around Rust's BTreeMap. Work in progress
 
-## Building
+## Building & Development
 
-todo
+In a virtual environment with maturin available, run `matrin develop` to build and install in the local environment, or `maturin develop --extras=devel` to build with development dependencies, such as pytest.
 
 ## Implementation Details
 
@@ -18,7 +18,8 @@ When its usable I'll do some benchmarking
 
 ## Plan
 
-- [ ] fix the iterators, they dont work
 - [ ] implement other types (at least floats, strings, and bytes) with macros
+- [ ] implement a generic version
 - [ ] implement a unified python interface that hides some details
-- [ ] get the final interators working
+- [ ] make some benchmarks
+- [ ] package
