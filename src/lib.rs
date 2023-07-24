@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, mem::swap};
 
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyKeyError, prelude::*};
 
 /// A dictionary-like object implemented using rust's stdlib BTree, maintaining the order (by comparison) of keys
 #[pyclass]
@@ -9,122 +9,26 @@ struct IntBTreeMap {
     inner: BTreeMap<i64, PyObject>,
 }
 
-/// Iterator over the keys of the map. Used when consuming the map
+/// Iterator over the keys of the map
 #[pyclass]
-struct IntBTreeMapKeysOnce {
+struct IntBTreeMapKeys {
     inner: Box<dyn Iterator<Item = i64> + Send>,
 }
 
-/// Iterator over the keys of the map. Contains a copy of the keys, not references to the originals in the map
+/// Iterator over the values of the map
 #[pyclass]
-struct IntBTreeMapKeys {
-    keys: Vec<i64>,
-    cur: usize,
-}
-
-/// Iterator over the values of the map. Used when consuming the map
-#[pyclass]
-struct BTreeMapValuesOnce {
+struct BTreeMapValues {
     inner: Box<dyn Iterator<Item = PyObject> + Send>,
 }
 
-/// Iterator over the values of the map. Contains a copy of the python reference to each value
+/// Iterator over the keys and values of the map
 #[pyclass]
-struct BTreeMapValues {
-    values: Vec<PyObject>,
-    cur: usize,
-}
-
-/// Iterator over the keys and values of the map. Used when consuming the map
-#[pyclass]
-struct IntBTreeMapItemsOnce {
+struct IntBTreeMapItems {
     inner: Box<dyn Iterator<Item = (i64, PyObject)> + Send>,
 }
 
-/// Iterator over the keys and values of the map. Contains a copy of the python reference to each value and a copy or reference of the key
-#[pyclass]
-struct IntBTreeMapItems {
-    items: Vec<(i64, PyObject)>,
-    cur: usize,
-}
-
-impl IntBTreeMapKeys {
-    fn new(keys: Vec<i64>) -> Self {
-        Self { keys, cur: 0 }
-    }
-}
-
-impl BTreeMapValues {
-    fn new(values: Vec<PyObject>) -> Self {
-        Self { values, cur: 0 }
-    }
-}
-
-impl IntBTreeMapItems {
-    fn new(items: Vec<(i64, PyObject)>) -> Self {
-        Self { items, cur: 0 }
-    }
-}
-
-#[pymethods]
-impl IntBTreeMapKeys {
-    fn __next__(&mut self) -> Option<i64> {
-        // TODO we can make this more memory efficient by storing it reversed and popping off the vector, and shrinking
-        // might be worth exploring
-        if self.cur < self.keys.len() {
-            let next = self.keys[self.cur];
-            self.cur += 1;
-            Some(next)
-        } else {
-            None
-        }
-    }
-
-    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-}
-
 #[pymethods]
 impl BTreeMapValues {
-    fn __next__(&mut self) -> Option<PyObject> {
-        // TODO we can make this more memory efficient by storing it reversed and popping off the vector, and shrinking
-        // might be worth exploring. Also we wont need to clone the reference
-        if self.cur < self.values.len() {
-            let next = self.values[self.cur].clone();
-            self.cur += 1;
-            Some(next)
-        } else {
-            None
-        }
-    }
-
-    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-}
-
-#[pymethods]
-impl IntBTreeMapItems {
-    fn __next__(&mut self) -> Option<(i64, PyObject)> {
-        // TODO we can make this more memory efficient by storing it reversed and popping off the vector, and shrinking
-        // might be worth exploring. Also we wont need to clone the reference.
-        if self.cur < self.items.len() {
-            let next = self.items[self.cur].clone();
-            self.cur += 1;
-            Some(next)
-        } else {
-            None
-        }
-    }
-
-    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-}
-
-#[pymethods]
-impl BTreeMapValuesOnce {
     fn __next__(&mut self) -> Option<PyObject> {
         self.inner.next()
     }
@@ -135,7 +39,7 @@ impl BTreeMapValuesOnce {
 }
 
 #[pymethods]
-impl IntBTreeMapKeysOnce {
+impl IntBTreeMapKeys {
     fn __next__(&mut self) -> Option<i64> {
         self.inner.next()
     }
@@ -146,7 +50,7 @@ impl IntBTreeMapKeysOnce {
 }
 
 #[pymethods]
-impl IntBTreeMapItemsOnce {
+impl IntBTreeMapItems {
     fn __next__(&mut self) -> Option<(i64, PyObject)> {
         self.inner.next()
     }
@@ -174,16 +78,14 @@ impl IntBTreeMap {
     }
 
     fn __iter__(&self) -> IntBTreeMapKeys {
-        // TODO the string version will have to use .cloned()
-        IntBTreeMapKeys::new(self.inner.keys().copied().collect())
+        self.keys()
     }
 
-    fn __getitem__(&self, key: i64) -> PyObject {
-        if let Some(val) = self.inner.get(&key) {
-            val.clone()
-        } else {
-            todo!("figure out how to handle the exception")
-        }
+    fn __getitem__(&self, key: i64) -> PyResult<PyObject> {
+        self.inner
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| PyKeyError::new_err(key))
     }
 
     fn __setitem__(&mut self, key: i64, value: PyObject) {
@@ -194,45 +96,53 @@ impl IntBTreeMap {
         self.inner.remove(&key);
     }
 
+    /// Iterator over the keys of the map. Unlike python's dictionary's `.keys()` this copies the keys into the iterator
     fn keys(&self) -> IntBTreeMapKeys {
-        // TODO the string version will have to use .cloned()
-        IntBTreeMapKeys::new(self.inner.keys().copied().collect())
+        IntBTreeMapKeys {
+            inner: Box::new(self.inner.clone().into_keys()),
+        }
     }
 
     /// Creates an iterator over the keys of the map. Unlike `keys()` this does not copy the keys, but it is destructive, the map will be empty after calling this
-    fn keys_final(&mut self) -> IntBTreeMapKeysOnce {
+    fn keys_final(&mut self) -> IntBTreeMapKeys {
         let mut map = BTreeMap::new();
         swap(&mut map, &mut self.inner);
 
-        IntBTreeMapKeysOnce {
+        IntBTreeMapKeys {
             inner: Box::new(map.into_keys()),
         }
     }
 
+    /// Iterator over the values of the map. Unlike python's dictionary's `.values()` this copies the values into the iterator
     fn values(&self) -> BTreeMapValues {
-        BTreeMapValues::new(self.inner.values().cloned().collect())
+        BTreeMapValues {
+            inner: Box::new(self.inner.clone().into_values()),
+        }
     }
 
     /// Creates an iterator over the keys of the map. Unlike `values()` this does not copy the values, but it is destructive, the map will be empty after calling this
-    fn values_final(&mut self) -> BTreeMapValuesOnce {
+    fn values_final(&mut self) -> BTreeMapValues {
         let mut map = BTreeMap::new();
         swap(&mut map, &mut self.inner);
 
-        BTreeMapValuesOnce {
+        BTreeMapValues {
             inner: Box::new(map.into_values()),
         }
     }
 
+    /// Iterator over the keys and values of the map. Unlike python's dictionary's `.items()` this copies the keys & values into the iterator
     fn items(&self) -> IntBTreeMapItems {
-        IntBTreeMapItems::new(self.inner.iter().map(|(k, v)| (*k, v.clone())).collect())
+        IntBTreeMapItems {
+            inner: Box::new(self.inner.clone().into_iter()),
+        }
     }
 
     /// Creates an iterator over the keys and values of the map. Unlike `items()` this does not copy the keys or values, but it is destructive, the map will be empty after calling this
-    fn items_final(&mut self) -> IntBTreeMapItemsOnce {
+    fn items_final(&mut self) -> IntBTreeMapItems {
         let mut map = BTreeMap::new();
         swap(&mut map, &mut self.inner);
 
-        IntBTreeMapItemsOnce {
+        IntBTreeMapItems {
             inner: Box::new(map.into_iter()),
         }
     }
