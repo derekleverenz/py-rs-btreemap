@@ -1,3 +1,4 @@
+//use crate::ordered::OrderedFloat;
 use pyo3::{exceptions::PyKeyError, prelude::*};
 use std::{collections::BTreeMap, mem::swap};
 
@@ -134,6 +135,10 @@ macro_rules! typed_btree_map {
                 self.inner.insert(key, value);
             }
 
+            fn setdefault(&mut self, key: $type, default: PyObject) -> PyObject {
+                self.inner.entry(key).or_insert(default).clone()
+            }
+
             /// Create a shallow copy of the map
             fn copy(&self) -> Self {
                 self.clone()
@@ -172,8 +177,22 @@ typed_btree_map!(
 );
 
 // typed_btree_map!(
-//     f64,
+//     OrderedFloat,
 //     name = FloatBTreeMap,
 //     keys_name = FloatBTreeMapKeys,
 //     items_name = FloatBTreeMapItems
 // );
+
+typed_btree_map!(
+    String,
+    name = StringBTreeMap,
+    keys_name = StringBTreeMapKeys,
+    items_name = StringBTreeMapItems
+);
+
+typed_btree_map!(
+    Vec<u8>,
+    name = BytesBTreeMap,
+    keys_name = BytesBTreeMapKeys,
+    items_name = BytesBTreeMapItems
+);
