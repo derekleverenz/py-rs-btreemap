@@ -13,11 +13,5 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
-[project.optional_dependencies]
-devel = [
-    "pytest",
-    "pytest-benchmark"
-]
-
 [tool.maturin]
 features = ["pyo3/extension-module"]
