@@ -1,9 +1,26 @@
+[tool.poetry]
+name = "btree_map"
+version = "0.1.0"
+description = "Wrapper around rust's btree map"
+authors = ["Derek Leverenz <derek@derekleverenz.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.group.dev.dependencies]
+maturin = "^1.1"
+pytest = "^7.4.3"
+pytest-benchmark = "^4.0.0"
+
 [build-system]
 requires = ["maturin>=1.1,<2.0"]
 build-backend = "maturin"
 
 [project]
 name = "btree_map"
+description = "Wrapper around rust's btree map"
+authors = ["Derek Leverenz <derek@derekleverenz.com>"]
+version = "0.1.0"
 requires-python = ">=3.7"
 readme = "README.md"
 license = {file = "LICENSE"}
